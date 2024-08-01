@@ -1,128 +1,79 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 using UnityEngine.SceneManagement;
 
 public class GameManager : MonoBehaviour
 {
-    public static GameManager instance;
-    [Header("# Game Control")]
-    public bool isLive;
-    public float gameTime;
-    public float maxGameTime = 2 * 10f;
-    [Header("# Player Info")]
-    public int playerId;
-    public float health;
-    public int maxHealth = 100;
-    public int level;
-    public int kill;
-    public int exp;
-    public int[] nextExp = { 3, 5, 10, 100, 150, 210, 280, 360, 450, 600 };
-    [Header("# Game Object")]
-    public PoolManager pool;
-    public Player player;
-    public LevelUp uiLevelUp;
-    public Result uiResult;
-    public GameObject enemyCleaner;
+    public int totalPoint;
+    public int stagePoint;
+    public int stageIndex;
+    public int health;
+    public PlayerMove playerMove;
+    public GameObject[] stages;
+    public Text scoreText;
+    public Text stageText;
+    public Image[] playerLife;
+    public GameObject reStartButton;
+    public Text reStartButtonText;
 
-    void Awake()
+    public void NextStage()
     {
-        instance = this;
+        //change stage
+        if(stageIndex < (stages.Length - 1)) 
+        {
+            stages[stageIndex].SetActive(false);
+            stageIndex++;
+            stages[stageIndex].SetActive(true);
+            PlayerReposition();
+        }
+        //game clear
+        else 
+        {
+            Time.timeScale = 0;
+            Text reStartButtonText = reStartButton.GetComponentInChildren<Text>();
+            reStartButtonText.text = "Game Clear!";
+            reStartButton.SetActive(true);
+        }
+        stageText.text = "Stage " + (stageIndex + 1).ToString();
+        totalPoint += stagePoint;
+        stagePoint = 0;
     }
 
-    public void GameStart(int id)
+    void OnTriggerEnter2D(Collider2D collision)
     {
-        playerId = id;
-        health = maxHealth;
-
-        player.gameObject.SetActive(true);
-        uiLevelUp.Select(playerId % 2); // 임시 스크립트 (첫번째 캐릭터 선택)
-        Resume();
-
-        AudioManager.instance.PlayBgm(true);
-        AudioManager.instance.PlaySfx(AudioManager.Sfx.Select);
-    }
-
-    public void GameOver()
-    {
-        StartCoroutine(GameOverRoutine());
-    }
-
-    IEnumerator GameOverRoutine()
-    {
-        isLive = false;
-
-        yield return new WaitForSeconds(0.5f);
-
-        uiResult.gameObject.SetActive(true);
-        uiResult.Lose();
-        Stop();
-
-        AudioManager.instance.PlayBgm(false);
-        AudioManager.instance.PlaySfx(AudioManager.Sfx.Lose);
-    }
-
-    public void GameVictory()
-    {
-        StartCoroutine(GameVictoryRoutine());
-    }
-
-    IEnumerator GameVictoryRoutine()
-    {
-        isLive = false;
-        enemyCleaner.SetActive(true);
-
-        yield return new WaitForSeconds(0.5f);
-
-        uiResult.gameObject.SetActive(true);
-        uiResult.Win();
-        Stop();
-
-        AudioManager.instance.PlayBgm(false);
-        AudioManager.instance.PlaySfx(AudioManager.Sfx.Win);
-    }
-
-    public void GameRetry()
-    {
-        SceneManager.LoadScene(0);
-    }
-
-    void Update()
-    {
-        if (!isLive)
-            return;
-
-        gameTime += Time.deltaTime;
-
-        if (gameTime > maxGameTime) {
-            gameTime = maxGameTime;
-            GameVictory();
+        if(collision.gameObject.tag == "Player")
+        {
+            if(health > 1)
+            {
+                PlayerReposition();
+            }
+            playerMove.HealthDown();
+            
         }
     }
-
-    public void GetExp()
+    public void OnDie()
     {
-        if(!isLive)
-            return;
-
-        exp++;
-
-        if (exp == nextExp[Mathf.Min(level, nextExp.Length - 1)]) {
-            level++;
-            exp = 0;
-            uiLevelUp.Show();
-        }
+        //투명 효과
+        playerMove.spriteRenderer.color = new Color(1, 1, 1, 0.4f);
+        //뒤집기 효과
+        playerMove.spriteRenderer.flipY = true;
+        //콜라이더 헤제
+        playerMove.capsuleCollider2D.enabled = false;
+        //헤치우기 효과
+        playerMove.rigid.AddForce(Vector2.up * 7, ForceMode2D.Impulse);
     }
 
-    public void Stop()
+    void PlayerReposition()
     {
-        isLive = false;
-        Time.timeScale = 0;
+        playerMove.transform.position = new Vector3(-5, 2, 0);
+        playerMove.VelocityZero();
     }
 
-    public void Resume()
+    public void GameReplay()
     {
-        isLive = true;
         Time.timeScale = 1;
+        SceneManager.LoadScene(0);
     }
 }
